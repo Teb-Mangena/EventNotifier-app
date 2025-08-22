@@ -77,7 +77,7 @@ const EventForm = ({ event, onClose, onSuccess }) => {
         const uploadData = new FormData();
         uploadData.append('image', formData.image);
         
-        const uploadResponse = await fetch(apiUrl+'/upload', {
+        const uploadResponse = await fetch(apiUrl+'/events', {
           method: 'POST',
           body: uploadData
         });
