@@ -8,11 +8,11 @@ const EventForm = ({ event, onClose, onSuccess }) => {
     location: '',
     openingDate: '',
     closingDate: '',
-    image: null // For new image file
+    image: null
   });
-  const [existingImage, setExistingImage] = useState({ url: '', publicId: '' }); // For existing image data
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [existingImage, setExistingImage] = useState({ url: '', publicId: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState('');
 
   // Initialize form with event data when in edit mode
   useEffect(() => {
@@ -66,61 +66,46 @@ const EventForm = ({ event, onClose, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
+    setIsSubmitting(true);
+    setMessage('');
+
+    const submitData = new FormData();
+    submitData.append('title', formData.title);
+    submitData.append('description', formData.description);
+    submitData.append('location', formData.location);
+    submitData.append('openingDate', new Date(formData.openingDate).toISOString());
+    submitData.append('closingDate', new Date(formData.closingDate).toISOString());
     
+    // Only append image if it's a new file
+    if (formData.image) {
+      submitData.append('image', formData.image);
+    }
+
     try {
-      let imageData = existingImage;
-      
-      // If a new image was uploaded, upload it first
-      if (formData.image) {
-        const uploadData = new FormData();
-        uploadData.append('image', formData.image);
-        
-        const uploadResponse = await fetch(apiUrl+'/events', {
-          method: 'POST',
-          body: uploadData
-        });
-        
-        if (!uploadResponse.ok) {
-          throw new Error('Failed to upload image');
-        }
-        
-        imageData = await uploadResponse.json();
-      }
-      
-      // Prepare the event data with image
-      const eventData = {
-        title: formData.title,
-        description: formData.description,
-        location: formData.location,
-        openingDate: new Date(formData.openingDate).toISOString(),
-        closingDate: new Date(formData.closingDate).toISOString(),
-        image: imageData
-      };
-      
-      const url = event 
-        ? `${apiUrl}/events/${event._id}` 
-        : `${apiUrl}/events`;
-      
+      const url = event ? `${apiUrl}/events/${event._id}` : `${apiUrl}/events`;
       const method = event ? 'PATCH' : 'POST';
-      
+
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(eventData)
+        body: submitData,
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to save event: ${response.status}`);
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
-      onSuccess(); // Trigger refetch in parent
-    } catch (err) {
-      setError(err.message || 'Failed to save event');
+      // const result = await response.json();
+      setMessage(event ? 'Event updated successfully!' : 'Event created successfully!');
+      
+      // Call onSuccess after a brief delay to show success message
+      setTimeout(() => {
+        onSuccess();
+      }, 1000);
+    } catch (error) {
+      setMessage(`Error: ${error.message}`);
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -142,9 +127,13 @@ const EventForm = ({ event, onClose, onSuccess }) => {
             </button>
           </div>
           
-          {error && (
-            <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-4 text-sm">
-              {error}
+          {message && (
+            <div className={`p-3 rounded-lg mb-4 text-sm ${
+              message.includes('Error') 
+                ? 'bg-red-50 text-red-700' 
+                : 'bg-green-50 text-green-700'
+            }`}>
+              {message}
             </div>
           )}
           
@@ -250,16 +239,16 @@ const EventForm = ({ event, onClose, onSuccess }) => {
                 type="button"
                 onClick={onClose}
                 className="flex-1 border border-gray-300 py-2 rounded-lg hover:bg-gray-50 transition duration-200"
-                disabled={loading}
+                disabled={isSubmitting}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg transition duration-200 flex items-center justify-center"
-                disabled={loading}
+                disabled={isSubmitting}
               >
-                {loading ? (
+                {isSubmitting ? (
                   <>
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
