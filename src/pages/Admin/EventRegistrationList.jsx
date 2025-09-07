@@ -10,7 +10,7 @@ const EventRegistrationList = () => {
     const fetchRegistrations = async () => {
       try {
         setLoading(true);
-        const response = await fetch(apiUrl+'/api/event-register');
+        const response = await fetch(apiUrl+'/event-register');
         
         if (!response.ok) {
           throw new Error(`Failed to fetch registrations: ${response.status}`);
