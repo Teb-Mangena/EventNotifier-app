@@ -59,7 +59,7 @@ function LoginPage() {
                 </div>
                 <input 
                   type={showPassword ? "text" : "password"} 
-                  placeholder="••••••••"
+                  placeholder="Enter a strong password"
                   className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-gray-800 transition"
                   onChange={(e) => setPassword(e.target.value)}
                   value={password}

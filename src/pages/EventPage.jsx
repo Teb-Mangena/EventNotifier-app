@@ -2,31 +2,39 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import SideBar from "../components/SideBar";
 import { apiUrl } from "../api/apiUrl";
+import { useAuthContext } from "../hooks/useAuthContext";
 
 const EventPage = () => {
+  const { user } = useAuthContext();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [eventsPerPage] = useState(5);
   const [totalEvents, setTotalEvents] = useState(0);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [registrationLoading, setRegistrationLoading] = useState(false);
+  const [registrationMessage, setRegistrationMessage] = useState(null);
+  const [registrationError, setRegistrationError] = useState(null);
 
-  // Function to determine event status
   const getEventStatus = (openingDate, closingDate) => {
     const now = new Date();
     const start = new Date(openingDate);
     const end = new Date(closingDate);
     
-    if (now < start) {
-      return "upcoming";
-    } else if (now >= start && now <= end) {
+    // Calculate 5 days before the event starts
+    const fiveDaysBeforeStart = new Date(start.getTime() - (5 * 24 * 60 * 60 * 1000));
+    
+    if (now > end) {
+      return "closed";
+    } else if (now >= start || now >= fiveDaysBeforeStart) {
       return "open";
     } else {
-      return "closed";
+      return "upcoming";
     }
   };
 
-  // Get status badge with appropriate styling
   const getStatusBadge = (status) => {
     const statusConfig = {
       upcoming: {
@@ -76,6 +84,51 @@ const EventPage = () => {
 
     fetchEvents();
   }, [currentPage, eventsPerPage]);
+
+  const handleRegister = async () => {
+    if (!user) {
+      setRegistrationError("You must be logged in to register for events");
+      setTimeout(() => setRegistrationError(null), 5000);
+      setShowModal(false);
+      return;
+    }
+
+    setRegistrationLoading(true);
+    setRegistrationError(null);
+    setRegistrationMessage(null);
+
+    try {
+      const response = await fetch(`${apiUrl}/api/event-register/${selectedEvent._id}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${user.token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to register for event");
+      }
+
+      setRegistrationMessage("Successfully registered for the event!");
+      setTimeout(() => {
+        setRegistrationMessage(null);
+        setShowModal(false);
+      }, 3000);
+    } catch (err) {
+      console.error("Registration error:", err);
+      setRegistrationError(err.message);
+    } finally {
+      setRegistrationLoading(false);
+    }
+  };
+
+  const openRegistrationModal = (event) => {
+    setSelectedEvent(event);
+    setShowModal(true);
+  };
 
   const totalPages = Math.ceil(totalEvents / eventsPerPage);
 
@@ -143,6 +196,20 @@ const EventPage = () => {
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">Events</h1>
           <p className="text-gray-600 mb-6">Discover and join our activities</p>
 
+          {registrationMessage && (
+            <div className="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
+              <strong className="font-bold">Success! </strong>
+              <span className="block sm:inline">{registrationMessage}</span>
+            </div>
+          )}
+          
+          {registrationError && (
+            <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+              <strong className="font-bold">Error! </strong>
+              <span className="block sm:inline">{registrationError}</span>
+            </div>
+          )}
+
           <div className="space-y-6">
             {events.length === 0 ? (
               <div className="bg-yellow-50 text-yellow-700 p-4 rounded-lg">
@@ -159,7 +226,6 @@ const EventPage = () => {
                 const day = startDate.getDate();
                 const month = startDate.toLocaleString('default', { month: 'short' });
                 
-                // Determine event status
                 const status = getEventStatus(event.openingDate, event.closingDate);
                 
                 return (
@@ -169,91 +235,90 @@ const EventPage = () => {
                       status === 'closed' ? 'border-gray-200 opacity-80' : 'border-gray-200'
                     }`}
                   >
-                    <Link to={`/events/${event._id}`}>
-                      {event.image && event.image.url && (
-                        <div className="h-48 overflow-hidden relative">
-                          <img 
-                            src={event.image.url} 
-                            alt={event.title}
-                            className="w-full h-full object-cover"
-                          />
-                          {status === 'closed' && (
-                            <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-                              <span className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                                Event Ended
-                              </span>
-                            </div>
-                          )}
+                    {event.image && event.image.url && (
+                      <div className="h-48 overflow-hidden relative">
+                        <img 
+                          src={event.image.url} 
+                          alt={event.title}
+                          className="w-full h-full object-cover"
+                        />
+                        {status === 'closed' && (
+                          <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                            <span className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                              Event Ended
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="p-6">
+                      <div className="flex flex-col md:flex-row md:items-start">
+                        <div className="flex-shrink-0 mb-4 md:mb-0 md:mr-6">
+                          <div className={`rounded-lg w-16 h-16 flex flex-col items-center justify-center ${
+                            status === 'open' 
+                              ? 'bg-green-100 text-green-800' 
+                              : status === 'closed'
+                              ? 'bg-gray-100 text-gray-600'
+                              : 'bg-orange-100 text-orange-800'
+                          }`}>
+                            <span className="font-bold text-lg">{day}</span>
+                            <span className="text-sm">{month}</span>
+                          </div>
                         </div>
-                      )}
-                      
-                      <div className="p-6">
-                        <div className="flex flex-col md:flex-row md:items-start">
-                          <div className="flex-shrink-0 mb-4 md:mb-0 md:mr-6">
-                            <div className={`rounded-lg w-16 h-16 flex flex-col items-center justify-center ${
-                              status === 'open' 
-                                ? 'bg-green-100 text-green-800' 
-                                : status === 'closed'
-                                ? 'bg-gray-100 text-gray-600'
-                                : 'bg-orange-100 text-orange-800'
-                            }`}>
-                              <span className="font-bold text-lg">{day}</span>
-                              <span className="text-sm">{month}</span>
+                        
+                        <div className="flex-1">
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                            <h2 className="text-xl font-bold text-gray-800 mb-2">{event.title}</h2>
+                            {getStatusBadge(status)}
+                          </div>
+                          
+                          <div className="space-y-3 mt-3">
+                            <div className="flex items-center text-gray-600">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              <span>{formattedDate}</span>
+                            </div>
+                            
+                            <div className="flex items-center text-gray-600">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              <span>{event.location}</span>
                             </div>
                           </div>
                           
-                          <div className="flex-1">
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                              <h2 className="text-xl font-bold text-gray-800 mb-2">{event.title}</h2>
-                              {getStatusBadge(status)}
-                            </div>
-                            
-                            <div className="space-y-3 mt-3">
-                              <div className="flex items-center text-gray-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                <span>{formattedDate}</span>
-                              </div>
-                              
-                              <div className="flex items-center text-gray-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                                <span>{event.location}</span>
-                              </div>
-                            </div>
-                            
-                            <div className="mt-4 pt-4 border-t border-gray-100">
-                              <p className="text-gray-700 line-clamp-2">{event.description}</p>
-                            </div>
-                            
-                            <div className="mt-6 flex space-x-3">
-                              <button 
-                                className={`font-medium py-2 px-4 rounded-lg transition duration-200 ${
-                                  status === 'open'
-                                    ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                                    : status === 'upcoming'
-                                    ? 'bg-orange-300 text-white cursor-not-allowed'
-                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                }`}
-                                disabled={status !== 'open'}
-                              >
-                                {status === 'open' 
-                                  ? 'Register Now' 
-                                  : status === 'upcoming' 
-                                  ? 'Registration Opening Soon' 
-                                  : 'Registration Closed'}
-                              </button>
-                              <button className="border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-lg transition duration-200">
-                                Add to Calendar
-                              </button>
-                            </div>
+                          <div className="mt-4 pt-4 border-t border-gray-100">
+                            <p className="text-gray-700 line-clamp-2">{event.description}</p>
+                          </div>
+                          
+                          <div className="mt-6 flex space-x-3">
+                            <button 
+                              onClick={() => openRegistrationModal(event)}
+                              className={`font-medium py-2 px-4 rounded-lg transition duration-200 ${
+                                status === 'open'
+                                  ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                                  : status === 'upcoming'
+                                  ? 'bg-orange-300 text-white cursor-not-allowed'
+                                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                              }`}
+                              disabled={status !== 'open'}
+                            >
+                              {status === 'open' 
+                                ? 'Register Now' 
+                                : status === 'upcoming' 
+                                ? 'Registration Opening Soon' 
+                                : 'Registration Closed'}
+                            </button>
+                            <button className="border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-lg transition duration-200">
+                              Add to Calendar
+                            </button>
                           </div>
                         </div>
                       </div>
-                    </Link>
+                    </div>
                   </div>
                 );
               })
@@ -318,7 +383,7 @@ const EventPage = () => {
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5 ml-1"
                   viewBox="0 0 20 20"
-                  fill="currentColor"
+                  fill="CurrentColor"
                 >
                   <path
                     fillRule="evenodd"
@@ -330,7 +395,53 @@ const EventPage = () => {
             </div>
           )}
         </div>
-      </div>     
+      </div>
+
+      {showModal && selectedEvent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Confirm Registration</h3>
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-gray-700 mb-4">
+                Are you sure you want to register for the event <span className="font-semibold">{selectedEvent.title}</span>?
+              </p>
+              <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Date:</span> {formatEventDate(selectedEvent.openingDate, selectedEvent.closingDate)}
+                </p>
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Location:</span> {selectedEvent.location}
+                </p>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-150"
+                disabled={registrationLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRegister}
+                disabled={registrationLoading}
+                className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 transition-colors duration-150 disabled:opacity-50"
+              >
+                {registrationLoading ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Registering...
+                  </div>
+                ) : (
+                  "Confirm Registration"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
