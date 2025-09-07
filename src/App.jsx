@@ -17,6 +17,7 @@ import EventManagementPage from './pages/Admin/EventManagementPage';
 import ManageOpportunitiesPage from './pages/Admin/ManageOpportunitiesPage';
 import StudentDashboard from './pages/student/studentDashboard';
 import UserManagementPage from './pages/Admin/UserManagementPage';
+import EventRegistrationList from './pages/Admin/EventRegistrationList';
 
 function App() {
   const { user } = useAuthContext();
@@ -160,6 +161,16 @@ function App() {
               : <Navigate to="/login" />
           }
         />
+
+        <Route
+          path="/event-list"
+          element={
+            user && user.role === 'admin' 
+              ? <EventRegistrationList /> 
+              : <Navigate to="/login" />
+          }
+        />
+        
         
       </Routes>
     </BrowserRouter>

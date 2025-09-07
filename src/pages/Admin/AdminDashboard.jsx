@@ -97,7 +97,7 @@ const AdminDashboard = () => {
                     </svg>
                   }
                   color="orange"
-                  link="/analytics"
+                  link="/event-list"
                 />
               </div>
             </div>
