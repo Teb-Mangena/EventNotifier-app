@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import SideBar from "../components/SideBar";
 import { apiUrl } from "../api/apiUrl";
+import { useAuthContext } from "../hooks/useAuthContext";
 
 const EventDetailPage = () => {
   const { eventId } = useParams();
@@ -10,6 +11,12 @@ const EventDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [relatedEvents, setRelatedEvents] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [registrationStatus, setRegistrationStatus] = useState(null);
+  const [registartionErrMssg,setRegistartionErrMssg]=useState(null);
+  const { user } = useAuthContext();
+  const token = user?.token;
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -49,6 +56,49 @@ const EventDetailPage = () => {
 
     fetchEvent();
   }, [eventId]);
+
+  // Check if event date has passed
+  const isEventPassed = () => {
+    if (!event) return true;
+    const eventEndDate = new Date(event.closingDate);
+    const currentDate = new Date();
+    return eventEndDate < currentDate;
+  };
+
+
+  const handleRegister = async () => {
+    setIsRegistering(true);
+    try {
+
+      const response = await fetch(`${apiUrl}/event-register/${eventId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      console.log(data);
+
+      if (response.ok) {
+        setRegistrationStatus("success");
+        setTimeout(() => {
+          setShowModal(false);
+          setRegistrationStatus(null);
+        }, 1500);
+      } else {
+        setRegistrationStatus("error");
+        setRegistartionErrMssg(data.message || "Registration failed");
+      }
+    } catch (err) {
+      setRegistrationStatus("error");
+      console.error("Registration error:", err);
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
   const formatEventDate = (start, end) => {
     const startDate = new Date(start);
@@ -97,6 +147,79 @@ const EventDetailPage = () => {
       navigator.clipboard.writeText(window.location.href);
       alert("Link copied to clipboard!");
     }
+  };
+
+  // Registration Modal Component
+  const RegistrationModal = () => {
+    if (!showModal) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl max-w-md w-full p-6">
+          {registrationStatus === "success" ? (
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">Registration Successful!</h3>
+              <p className="text-gray-600 mb-4">You've successfully registered for this event.</p>
+            </div>
+          ) : registrationStatus === "error" ? (
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">Registration Failed</h3>
+              <p className="text-gray-600 mb-4">{registartionErrMssg}.</p>
+              <button
+                onClick={() => {
+                  setShowModal(false);
+                  setRegistrationStatus(null);
+                }}
+                className="w-full bg-orange-500 text-white py-2 rounded-lg font-medium"
+              >
+                Close
+              </button>
+            </div>
+          ) : (
+            <>
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Confirm Registration</h3>
+              <p className="text-gray-600 mb-6">Are you sure you want to register for "{event.title}"?</p>
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg font-medium"
+                  disabled={isRegistering}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRegister}
+                  className="flex-1 bg-orange-500 text-white py-2 rounded-lg font-medium disabled:bg-orange-300"
+                  disabled={isRegistering}
+                >
+                  {isRegistering ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Registering...
+                    </span>
+                  ) : (
+                    "Confirm"
+                  )}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -191,6 +314,8 @@ const EventDetailPage = () => {
   const formattedDate = formatEventDate(event.openingDate, event.closingDate);
   const duration = formatDuration(event.openingDate, event.closingDate);
 
+  const eventPassed = isEventPassed();
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <SideBar />
@@ -224,9 +349,15 @@ const EventDetailPage = () => {
                 <div className="flex-1 text-white">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between">
                     <h1 className="text-2xl md:text-3xl font-bold mb-2">{event.title}</h1>
-                    <span className="bg-white bg-opacity-20 text-white text-sm font-medium px-3 py-1 rounded-full mb-3 md:mb-0 inline-flex items-center">
-                      <span className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></span>
-                      Upcoming
+                    <span className={`text-sm font-medium px-3 py-1 rounded-full mb-3 md:mb-0 inline-flex items-center ${
+                      eventPassed 
+                        ? "bg-gray-700 text-gray-200" 
+                        : "bg-white bg-opacity-20 text-white"
+                    }`}>
+                      <span className={`w-2 h-2 rounded-full mr-2 ${
+                        eventPassed ? "bg-gray-400" : "bg-white animate-pulse"
+                      }`}></span>
+                      {eventPassed ? "Event Ended" : "Upcoming"}
                     </span>
                   </div>
                   
@@ -295,11 +426,19 @@ const EventDetailPage = () => {
                   </div>
                   
                   <div className="flex flex-wrap gap-3">
-                    <button className="bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 px-6 rounded-lg transition duration-200 flex items-center">
+                    <button 
+                      onClick={() => !eventPassed && setShowModal(true)}
+                      disabled={eventPassed}
+                      className={`${
+                        eventPassed 
+                          ? "bg-gray-400 cursor-not-allowed" 
+                          : "bg-orange-500 hover:bg-orange-600"
+                      } text-white font-medium py-3 px-6 rounded-lg transition duration-200 flex items-center`}
+                    >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      Register Now
+                      {eventPassed ? "Event Ended" : "Register Now"}
                     </button>
                     
                     <button 
@@ -354,11 +493,20 @@ const EventDetailPage = () => {
                     </div>
                     
                     <p className="text-sm text-gray-600 mb-4">
-                      Register before August 14 to secure your spot. Registration closes 24 hours before the event.
+                      {eventPassed 
+                        ? "This event has already taken place." 
+                        : "Register before August 14 to secure your spot. Registration closes 24 hours before the event."
+                      }
                     </p>
                     
-                    <button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-2.5 px-4 rounded-lg transition duration-200">
-                      Register Now
+                    <button 
+                      onClick={() => !eventPassed && setShowModal(true)}
+                      disabled={eventPassed}
+                      className={`w-full ${
+                        eventPassed ? "bg-gray-400 cursor-not-allowed" : "bg-orange-500 hover:bg-orange-600"
+                      } text-white font-medium py-2.5 px-4 rounded-lg transition duration-200`}
+                    >
+                      {eventPassed ? "Event Ended" : "Register Now"}
                     </button>
                   </div>
                 </div>
@@ -430,7 +578,10 @@ const EventDetailPage = () => {
             </div>
           )}
         </div>
-      </div>     
+      </div>
+
+      {/* Registration Modal */}
+      <RegistrationModal />
     </div>
   );
 }
