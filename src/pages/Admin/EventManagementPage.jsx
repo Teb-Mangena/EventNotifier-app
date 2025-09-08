@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { format, isPast, isFuture, differenceInDays } from 'date-fns';
 import SideBar from '../../components/SideBar';
 import EventForm from './EventForm';
 import { apiUrl } from '../../api/apiUrl';
@@ -32,16 +33,38 @@ const EventManagementPage = () => {
     fetchEvents();
   }, []);
 
+  // Get event status with date-fns
+  const getEventStatus = (openingDate, closingDate) => {
+    const now = new Date();
+    const opening = new Date(openingDate);
+    const closing = new Date(closingDate);
+    
+    if (isPast(closing)) {
+      return { status: 'passed', text: 'Event Passed', color: 'bg-gray-100 text-gray-700' };
+    } else if (isPast(opening) && isFuture(closing)) {
+      return { status: 'ongoing', text: 'Ongoing', color: 'bg-green-100 text-green-700' };
+    } else if (isFuture(opening)) {
+      const daysUntil = differenceInDays(opening, now);
+      if (daysUntil === 0) {
+        return { status: 'today', text: 'Starting Today', color: 'bg-blue-100 text-blue-700' };
+      } else if (daysUntil === 1) {
+        return { status: 'tomorrow', text: 'Tomorrow', color: 'bg-orange-100 text-orange-700' };
+      } else {
+        return { 
+          status: 'upcoming', 
+          text: `In ${daysUntil} days`, 
+          color: 'bg-orange-100 text-orange-700' 
+        };
+      }
+    }
+    
+    return { status: 'unknown', text: 'Unknown', color: 'bg-gray-100 text-gray-700' };
+  };
+
   // Format date for display
   const formatEventDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return format(date, 'MMM dd, yyyy h:mm a');
   };
 
   // Open form in create mode
@@ -182,82 +205,86 @@ const EventManagementPage = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {events.map((event) => (
-                  <div 
-                    key={event._id}
-                    className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300"
-                  >
-                    {/* Updated image section */}
-                    {event.image && event.image.url ? (
-                      <img 
-                        src={event.image.url} 
-                        alt={event.title}
-                        className="w-full h-48 object-cover"
-                      />
-                    ) : (
-                      <div className="bg-gray-200 border-2 border-dashed rounded-t-xl w-full h-48 flex items-center justify-center">
-                        <span className="text-gray-400">No Image</span>
-                      </div>
-                    )}
-                    
-                    <div className="p-5">
-                      <div className="flex justify-between items-start">
-                        <h3 className="text-lg font-bold text-gray-800 mb-2">{event.title}</h3>
-                        <span className="bg-orange-100 text-orange-700 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                          Upcoming
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center text-gray-600 text-sm mb-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        <span>{event.location}</span>
-                      </div>
-                      
-                      <div className="flex items-center text-gray-600 text-sm mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span>
-                          {formatEventDate(event.openingDate)} - {formatEventDate(event.closingDate)}
-                        </span>
-                      </div>
-                      
-                      <p className="text-gray-700 text-sm mb-4 line-clamp-2">
-                        {event.description}
-                      </p>
-                      
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center text-gray-500 text-sm">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          Created {new Date(event.createdAt).toLocaleDateString()}
+                {events.map((event) => {
+                  const status = getEventStatus(event.openingDate, event.closingDate);
+                  
+                  return (
+                    <div 
+                      key={event._id}
+                      className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300"
+                    >
+                      {/* Updated image section */}
+                      {event.image && event.image.url ? (
+                        <img 
+                          src={event.image.url} 
+                          alt={event.title}
+                          className="w-full h-48 object-cover"
+                        />
+                      ) : (
+                        <div className="bg-gray-200 border-2 border-dashed rounded-t-xl w-full h-48 flex items-center justify-center">
+                          <span className="text-gray-400">No Image</span>
                         </div>
-                        <div className="flex space-x-2">
-                          <button 
-                            onClick={() => openEditForm(event)}
-                            className="text-blue-600 hover:text-blue-800"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      )}
+                      
+                      <div className="p-5">
+                        <div className="flex justify-between items-start">
+                          <h3 className="text-lg font-bold text-gray-800 mb-2">{event.title}</h3>
+                          <span className={`${status.color} text-xs font-medium px-2.5 py-0.5 rounded-full`}>
+                            {status.text}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center text-gray-600 text-sm mb-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <span>{event.location}</span>
+                        </div>
+                        
+                        <div className="flex items-center text-gray-600 text-sm mb-4">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span>
+                            {formatEventDate(event.openingDate)} - {formatEventDate(event.closingDate)}
+                          </span>
+                        </div>
+                        
+                        <p className="text-gray-700 text-sm mb-4 line-clamp-2">
+                          {event.description}
+                        </p>
+                        
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center text-gray-500 text-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                          </button>
-                          <button 
-                            onClick={() => openDeleteConfirmation(event._id)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                            Created {format(new Date(event.createdAt), 'MMM dd, yyyy')}
+                          </div>
+                          <div className="flex space-x-2">
+                            <button 
+                              onClick={() => openEditForm(event)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button 
+                              onClick={() => openDeleteConfirmation(event._id)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

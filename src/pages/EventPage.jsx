@@ -10,6 +10,7 @@ const EventPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [eventsPerPage] = useState(5);
   const [totalEvents, setTotalEvents] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   // Function to determine event status
   const getEventStatus = (openingDate, closingDate) => {
@@ -55,9 +56,9 @@ const EventPage = () => {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const skip = (currentPage - 1) * eventsPerPage;
+        setLoading(true);
         const response = await fetch(
-          `${apiUrl}/events?limit=${eventsPerPage}&skip=${skip}`
+          `${apiUrl}/events?page=${currentPage}&limit=${eventsPerPage}`
         );
         
         if (!response.ok) {
@@ -67,17 +68,16 @@ const EventPage = () => {
         const result = await response.json();
         setEvents(result.data);
         setTotalEvents(result.total);
+        setTotalPages(result.totalPages);
       } catch (err) {
         setError(err.message);
       } finally {
-        setTimeout(() => setLoading(false), 800);
+        setLoading(false);
       }
     };
 
     fetchEvents();
   }, [currentPage, eventsPerPage]);
-
-  const totalPages = Math.ceil(totalEvents / eventsPerPage);
 
   const formatEventDate = (start, end) => {
     const startDate = new Date(start);
@@ -96,8 +96,54 @@ const EventPage = () => {
   const handlePageChange = (page) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
-      setLoading(true);
+      // Scroll to top when page changes
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+  };
+
+  // Generate page numbers to display (with ellipsis for many pages)
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      // If total pages is less than max visible, show all
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+      
+      let startPage = Math.max(2, currentPage - 1);
+      let endPage = Math.min(totalPages - 1, currentPage + 1);
+      
+      if (currentPage <= 3) {
+        endPage = 4;
+      } else if (currentPage >= totalPages - 2) {
+        startPage = totalPages - 3;
+      }
+      
+      // Add ellipsis after first page if needed
+      if (startPage > 2) {
+        pages.push('...');
+      }
+      
+      // Add middle pages
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i);
+      }
+      
+      // Add ellipsis before last page if needed
+      if (endPage < totalPages - 1) {
+        pages.push('...');
+      }
+      
+      // Always show last page
+      pages.push(totalPages);
+    }
+    
+    return pages;
   };
 
   if (loading) {
@@ -261,72 +307,84 @@ const EventPage = () => {
           </div>
 
           {totalPages > 1 && (
-            <div className="mt-8 flex items-center justify-between border-t border-gray-200 pt-6">
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className={`flex items-center px-4 py-2 rounded-lg ${
-                  currentPage === 1
-                    ? "text-gray-400 cursor-not-allowed"
-                    : "text-orange-600 hover:bg-orange-50"
-                }`}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-1"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Previous
-              </button>
-
-              <div className="flex items-center space-x-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                  (page) => (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      className={`px-3 py-1 rounded-lg ${
-                        currentPage === page
-                          ? "bg-orange-500 text-white"
-                          : "text-gray-600 hover:bg-gray-100"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  )
-                )}
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 pt-6">
+              <div className="text-sm text-gray-700 mb-4 sm:mb-0">
+                Showing <span className="font-medium">{(currentPage - 1) * eventsPerPage + 1}</span> to <span className="font-medium">
+                  {Math.min(currentPage * eventsPerPage, totalEvents)}
+                </span> of <span className="font-medium">{totalEvents}</span> results
               </div>
-
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className={`flex items-center px-4 py-2 rounded-lg ${
-                  currentPage === totalPages
-                    ? "text-gray-400 cursor-not-allowed"
-                    : "text-orange-600 hover:bg-orange-50"
-                }`}
-              >
-                Next
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 ml-1"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
+              
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className={`flex items-center px-3 py-2 rounded-md ${
+                    currentPage === 1
+                      ? "text-gray-400 cursor-not-allowed"
+                      : "text-orange-600 hover:bg-orange-50"
+                  }`}
                 >
-                  <path
-                    fillRule="evenodd"
-                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 mr-1"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  Previous
+                </button>
+
+                <div className="flex items-center space-x-1">
+                  {getPageNumbers().map((page, index) => (
+                    page === '...' ? (
+                      <span key={`ellipsis-${index}`} className="px-2 py-1 text-gray-500">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page)}
+                        className={`px-3 py-1 rounded-md ${
+                          currentPage === page
+                            ? "bg-orange-500 text-white"
+                            : "text-gray-600 hover:bg-gray-100"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    )
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className={`flex items-center px-3 py-2 rounded-md ${
+                    currentPage === totalPages
+                      ? "text-gray-400 cursor-not-allowed"
+                      : "text-orange-600 hover:bg-orange-50"
+                  }`}
+                >
+                  Next
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 ml-1"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
             </div>
           )}
         </div>

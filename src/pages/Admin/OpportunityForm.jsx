@@ -164,7 +164,7 @@ const OpportunityForm = ({ opportunity, onClose, onSuccess }) => {
                 >
                   <option value="">Select category</option>
                   <option value="Bursary">Bursary</option>
-                  <option value="in-service">In-service training</option>
+                  <option value="In-Service">In-service training</option>
                   <option value="Heckathons">Heckathons</option>
                 </select>
               </div>
