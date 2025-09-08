@@ -1,3 +1,4 @@
+// src/pages/Admin/UserManagementPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuthContext } from '../../hooks/useAuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -5,7 +6,7 @@ import SideBar from '../../components/SideBar';
 import { apiUrl } from '../../api/apiUrl';
 
 const UserManagementPage = () => {
-  const { user: adminUser } = useAuthContext();
+  const { user } = useAuthContext();
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -31,11 +32,7 @@ const UserManagementPage = () => {
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        const response = await fetch(apiUrl+'/users', {
-          headers: {
-            'Authorization': `Bearer ${adminUser.token}`
-          }
-        });
+        const response = await fetch(apiUrl+'/users');
         
         if (!response.ok) {
           throw new Error(`Failed to fetch users: ${response.status}`);
@@ -52,17 +49,15 @@ const UserManagementPage = () => {
       }
     };
 
-    if (adminUser && adminUser.role === 'admin') {
-      fetchUsers();
-    }
-  }, [adminUser]);
+    fetchUsers();
+  }, []);
 
   useEffect(() => {
     // Redirect if not admin
-    if (adminUser && adminUser.role !== 'admin') {
+    if (user && user.role !== 'admin') {
       navigate('/');
     }
-  }, [adminUser, navigate]);
+  }, [user, navigate]);
 
   useEffect(() => {
     // Apply filters and search
@@ -142,13 +137,6 @@ const UserManagementPage = () => {
   };
 
   const openDeleteConfirm = (user) => {
-    // Prevent admin from deleting their own account
-    if (user._id === adminUser._id) {
-      setError('You cannot delete your own account!');
-      setTimeout(() => setError(null), 5000);
-      return;
-    }
-    
     setCurrentUser(user);
     setDeleteConfirmOpen(true);
   };
@@ -168,7 +156,6 @@ const UserManagementPage = () => {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminUser.token}`
         },
         body: JSON.stringify(formData)
       });
@@ -194,19 +181,8 @@ const UserManagementPage = () => {
 
   const handleDeleteUser = async () => {
     try {
-      // Double-check to prevent admin from deleting their own account
-      if (currentUser._id === adminUser._id) {
-        setError('You cannot delete your own account!');
-        setDeleteConfirmOpen(false);
-        setTimeout(() => setError(null), 5000);
-        return;
-      }
-      
       const response = await fetch(`${apiUrl}/users/${currentUser._id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${adminUser.token}`
-        }
+        method: 'DELETE'
       });
       
       if (!response.ok) {
