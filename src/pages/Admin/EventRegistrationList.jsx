@@ -5,6 +5,12 @@ const EventRegistrationList = () => {
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filters, setFilters] = useState({
+    event: '',
+    dateFrom: '',
+    dateTo: ''
+  });
+  const [filteredRegistrations, setFilteredRegistrations] = useState([]);
 
   useEffect(() => {
     const fetchRegistrations = async () => {
@@ -18,6 +24,7 @@ const EventRegistrationList = () => {
         
         const data = await response.json();
         setRegistrations(data);
+        setFilteredRegistrations(data);
         setLoading(false);
       } catch (err) {
         setError(err.message);
@@ -28,6 +35,50 @@ const EventRegistrationList = () => {
 
     fetchRegistrations();
   }, []);
+
+  // Extract unique events for filter dropdown
+  const events = [...new Set(registrations
+    .map(reg => reg.eventId?.title)
+    .filter(title => title !== undefined)
+  )];
+
+  // Apply filters
+  useEffect(() => {
+    let result = registrations;
+    
+    if (filters.event) {
+      result = result.filter(reg => reg.eventId?.title === filters.event);
+    }
+    
+    if (filters.dateFrom) {
+      const fromDate = new Date(filters.dateFrom);
+      result = result.filter(reg => new Date(reg.registrationDate) >= fromDate);
+    }
+    
+    if (filters.dateTo) {
+      const toDate = new Date(filters.dateTo);
+      toDate.setHours(23, 59, 59, 999); // End of the day
+      result = result.filter(reg => new Date(reg.registrationDate) <= toDate);
+    }
+    
+    setFilteredRegistrations(result);
+  }, [filters, registrations]);
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      event: '',
+      dateFrom: '',
+      dateTo: ''
+    });
+  };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -70,9 +121,74 @@ const EventRegistrationList = () => {
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
               List of all event registrations
             </p>
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-sm text-gray-700">
+                Showing {filteredRegistrations.length} of {registrations.length} registrations
+              </span>
+            </div>
+          </div>
+
+          {/* Filters Section */}
+          <div className="px-4 py-5 sm:p-6 border-b border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label htmlFor="event" className="block text-sm font-medium text-gray-700 mb-1">
+                  Filter by Event
+                </label>
+                <select
+                  id="event"
+                  name="event"
+                  value={filters.event}
+                  onChange={handleFilterChange}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                >
+                  <option value="">All Events</option>
+                  {events.map(event => (
+                    <option key={event} value={event}>{event}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="dateFrom" className="block text-sm font-medium text-gray-700 mb-1">
+                  From Date
+                </label>
+                <input
+                  type="date"
+                  id="dateFrom"
+                  name="dateFrom"
+                  value={filters.dateFrom}
+                  onChange={handleFilterChange}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="dateTo" className="block text-sm font-medium text-gray-700 mb-1">
+                  To Date
+                </label>
+                <input
+                  type="date"
+                  id="dateTo"
+                  name="dateTo"
+                  value={filters.dateTo}
+                  onChange={handleFilterChange}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                />
+              </div>
+              
+              <div className="flex items-end">
+                <button
+                  onClick={clearFilters}
+                  className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-md text-sm font-medium"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            </div>
           </div>
           
-          {registrations.length === 0 ? (
+          {filteredRegistrations.length === 0 ? (
             <div className="px-4 py-5 sm:p-6 text-center">
               <svg
                 className="mx-auto h-12 w-12 text-gray-400"
@@ -88,9 +204,11 @@ const EventRegistrationList = () => {
                   d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No registrations</h3>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No matching registrations</h3>
               <p className="mt-1 text-sm text-gray-500">
-                There are no event registrations to display.
+                {registrations.length > 0 
+                  ? "Try adjusting your filters to see results." 
+                  : "There are no event registrations to display."}
               </p>
             </div>
           ) : (
@@ -113,7 +231,7 @@ const EventRegistrationList = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {registrations.map((registration) => (
+                  {filteredRegistrations.map((registration) => (
                     <tr key={registration._id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
