@@ -409,20 +409,20 @@ const EventDetailPage = () => {
                       </svg>
                       <span>{event.location}</span>
                     </div>
-                    <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-48 flex items-center justify-center">
+                    {/* <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full h-48 flex items-center justify-center">
                       <div className="text-center">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                         </svg>
                         <p className="text-gray-500 mt-2">Map view</p>
                       </div>
-                    </div>
-                    <button className="mt-3 text-orange-600 font-medium hover:underline inline-flex items-center">
+                    </div> */}
+                    {/* <button className="mt-3 text-orange-600 font-medium hover:underline inline-flex items-center">
                       Get Directions
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                       </svg>
-                    </button>
+                    </button> */}
                   </div>
                   
                   <div className="flex flex-wrap gap-3">
